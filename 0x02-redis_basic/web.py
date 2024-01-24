@@ -1,8 +1,10 @@
-# web.py
+#!/usr/bin/env python3
+"""
+web.py - A module for implementing an expiring web cache and tracker.
+"""
 
 import requests
 import redis
-import time
 from typing import Optional
 
 # Initialize Redis connection
@@ -11,8 +13,7 @@ redis_conn = redis.Redis()
 
 def get_page(url: str) -> str:
     """
-    Retrieve HTML content of URL, track access count,
-    and cache result with expiration.
+    Retrieve the HTML content of a URL
 
     Args:
         url (str): The URL to retrieve HTML content from.

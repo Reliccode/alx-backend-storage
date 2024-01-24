@@ -1,58 +1,36 @@
 #!/usr/bin/env python3
 """
-web.py - A module for implementing an expiring web cache and tracker.
+web cache and tracker
 """
-
 import requests
 import redis
-from typing import Optional
+from functools import wraps
 
-# Initialize Redis connection
-redis_conn = redis.Redis()
+store = redis.Redis()
 
 
+def count_url_access(method):
+    """ Decorator counting how many times
+    a URL is accessed """
+    @wraps(method)
+    def wrapper(url):
+        cached_key = "cached:" + url
+        cached_data = store.get(cached_key)
+        if cached_data:
+            return cached_data.decode("utf-8")
+
+        count_key = "count:" + url
+        html = method(url)
+
+        store.incr(count_key)
+        store.set(cached_key, html)
+        store.expire(cached_key, 10)
+        return html
+    return wrapper
+
+
+@count_url_access
 def get_page(url: str) -> str:
-    """
-    Retrieve the HTML content of a URL
-
-    Args:
-        url (str): The URL to retrieve HTML content from.
-
-    Returns:
-        str: The HTML content of the URL.
-    """
-    # Key to track access count for the URL
-    count_key = f"count:{url}"
-
-    # Increment access count
-    access_count = redis_conn.incr(count_key)
-
-    # Check if the HTML content is already cached
-    cache_key = f"cache:{url}"
-    cached_html = redis_conn.get(cache_key)
-
-    if cached_html is not None:
-        print(f"Cache hit for {url} ({access_count} accesses)")
-        return cached_html.decode("utf-8")
-
-    # Cache miss, fetch HTML content using requests
-    print(f"Cache miss for {url} ({access_count} accesses)")
-
-    # Simulate a slow response using http://slowwly.robertomurray.co.uk
-    response = requests.get(
-        f"http://slowwly.robertomurray.co.uk/delay/1000/url/{url}")
-
-    # Extract HTML content
-    html_content = response.text
-
-    # Cache the HTML content with expiration time
-    redis_conn.setex(cache_key, 10, html_content)
-
-    return html_content
-
-
-if __name__ == "__main__":
-    # Test the get_page function
-    url_to_test = "https://www.example.com"
-    html_content = get_page(url_to_test)
-    print(html_content)
+    """ Returns HTML content of a url """
+    res = requests.get(url)
+    return res.text
